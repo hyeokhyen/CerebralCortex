@@ -51,6 +51,7 @@ class TestRPeakDetect(unittest.TestCase):
                     DataPoint.from_tuple(datetime.datetime.fromtimestamp(values[0] / 1000000.0, tz=tz), values[1]))
         cls.ecg_datastream = DataStream(None, None)
         cls.ecg_datastream.data = cls.ecg
+        print (len(cls.ecg_datastream.data))
 
     def test_rr_interval_update(self):
         rpeak_temp1 = [i for i in range(0, 100, 10)]

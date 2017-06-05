@@ -28,12 +28,15 @@ import os
 import unittest
 
 import pytz
+import numpy as np
 
 from cerebralcortex.data_processor.feature.rip import rip_feature_computation
 from cerebralcortex.data_processor.signalprocessing.rip import compute_peak_valley
 from cerebralcortex.kernel.datatypes.datapoint import DataPoint
 from cerebralcortex.kernel.datatypes.datastream import DataStream
+from cerebralcortex.data_processor.signalprocessing.window import window_sliding
 
+from pprint import pprint
 
 class TestRIPFeatures(unittest.TestCase):
     @classmethod
@@ -50,6 +53,7 @@ class TestRIPFeatures(unittest.TestCase):
 
         rip_ds = DataStream(None, None)
         rip_ds.data = rip[:5000]
+        #print (rip_ds.data)
 
         cls.peak, cls.valley = compute_peak_valley(rip_ds, fs=rip_sampling_frequency)
 
@@ -61,6 +65,41 @@ class TestRIPFeatures(unittest.TestCase):
         bd_insp_datastream, bd_expr_datastream, bd_resp_datastream, bd_stretch_datastream, fd_insp_datastream, fd_expr_datastream, \
         fd_resp_datastream, fd_stretch_datastream, d5_expr_datastream, d5_stretch_datastream = rip_feature_computation(
             self.peak, self.valley)
+
+        #pprint (insp_datastream.data)
+        window_size = 60; window_offset = 60
+        window_data = window_sliding(insp_datastream.data, window_size, window_offset)
+        #pprint (window_data)
+        peak_window = window_sliding(self.peak.data, window_size, window_offset)
+        valley_window = window_sliding(self.valley.data, window_size, window_offset)
+        for key, data in peak_window.items():
+            print ('----- key -----')
+            pprint (key)
+            print ('----- peak -----')
+            print (len(peak_window[key]))
+            print (peak_window[key][0])
+            print (peak_window[key][0].start_time)
+            print (peak_window[key][0].start_time.timestamp())
+            print (peak_window[key][0].sample)
+            print ('----- valley -----')
+            print (len(valley_window[key]))
+            print (valley_window[key][0])
+            print (valley_window[key][0].start_time)
+            print (valley_window[key][0].start_time.timestamp())
+            print (valley_window[key][0].sample)
+            print ('----- data -----')
+            print (len(window_data[key]))
+            print (window_data[key][0])
+            print (window_data[key][0].start_time)
+            print (window_data[key][0].start_time.timestamp())
+            print (window_data[key][0].sample)
+            pprint (window_data[key])
+            reference_data = np.array([i.sample for i in window_data[key]])
+            pprint (reference_data)
+
+        print ('------------------------------------------')
+        print (len(peak_window.items()))
+        print (len(valley_window.items()))
 
         # test all are DataStream
         self.assertIsInstance(insp_datastream, DataStream)

@@ -41,6 +41,7 @@ class TestAccelerometer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super(TestAccelerometer, cls).setUpClass()
+
         tz = pytz.timezone('US/Eastern')
         cls.sampling_frequency = 64.0 / 6.0
         cls.accelx = []
@@ -50,7 +51,10 @@ class TestAccelerometer(unittest.TestCase):
                 cls.accelx.append(
                     DataPoint.from_tuple(datetime.datetime.fromtimestamp(values[0] / 1000000.0, tz=tz), values[1]))
         cls.accelx_ds = DataStream(None, None)
+        #print(cls.accelx)
         cls.accelx_ds.data = cls.accelx
+        #print (cls.accelx_ds.user)
+
 
         cls.accely = []
         with gzip.open(os.path.join(os.path.dirname(__file__), 'res/accely.csv.gz'), 'rt') as f:
@@ -107,6 +111,7 @@ class TestAccelerometer(unittest.TestCase):
 
     def test_accelerometer_features(self):
         ds = autosense_sequence_align([self.accelx_ds, self.accely_ds, self.accelz_ds], self.sampling_frequency)
+        #print (len(ds.data))
 
         accelerometer_magnitude, accelerometer_win_mag_deviations, accel_activity = accelerometer_features(ds)
 

@@ -60,6 +60,9 @@ def accelerometer_features(accel: DataStream,
     low_limit = np.percentile(am_values, percentile_low)
     high_limit = np.percentile(am_values, percentile_high)
     range = high_limit - low_limit
+    #print (range)
+    #print (low_limit + activity_threshold * range)
+    #print (accelerometer_win_mag_deviations_data)
 
     accel_activity_data = []
     for dp in accelerometer_win_mag_deviations_data:

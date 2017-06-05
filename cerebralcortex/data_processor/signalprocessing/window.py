@@ -29,6 +29,8 @@ from typing import List
 
 import pytz
 
+from pprint import pprint
+
 from cerebralcortex.kernel.datatypes.datapoint import DataPoint
 
 
@@ -93,7 +95,79 @@ def window_sliding(data: List[DataPoint],
 
     return windowed_datastream
 
+def window_iter(iterable: List[DataPoint],
+                window_size: float,
+                window_offset: float):
+    """
+    Window iteration function that support various common implementations
+    :param iterable:
+    :param window_size:
+    :param window_offset:
+    """
 
+    start_time = epoch_align(iterable[0].start_time, window_offset)
+    win_size = timedelta(seconds=window_size)
+    window_offset = timedelta(seconds=window_offset)
+
+    while start_time < iterable[-1].start_time:
+        end_time = start_time + win_size
+        key = (start_time, end_time)
+
+        data = [i for i in iterable if i.start_time > start_time and i.start_time < end_time]
+
+        start_time = start_time + window_offset
+        #print (start_time)
+
+        if len(data) > 0:
+            yield key, data
+
+'''
+# Modified code but still having problem when having small offset size.
+def window_iter(iterable: List[DataPoint],
+                window_size: float,
+                window_offset: float):
+    """
+    Window iteration function that support various common implementations
+    :param iterable:
+    :param window_size:
+    :param window_offset:
+    """
+    iterator = iter(iterable)
+
+    start_time = epoch_align(iterable[0].start_time, window_offset)
+    win_size = timedelta(seconds=window_size)
+    window_offset = timedelta(seconds=window_offset)
+
+    end_time = start_time + win_size
+    key = (start_time, end_time)
+
+    data = []
+    for element in iterator:
+        timestamp = element.start_time
+        if timestamp > end_time:
+            #print (element)
+            #print (key)
+            yield key, data
+
+            start_time = start_time + window_offset
+            end_time = start_time + win_size
+            while end_time < timestamp:
+                start_time = start_time + window_offset
+                end_time = start_time + win_size
+            key = (start_time, end_time)
+
+            data = [i for i in data if i.start_time > start_time and i.start_time < end_time]
+            #print (key)
+            #pprint (data)
+
+        if timestamp > start_time and timestamp < end_time:
+            data.append(element)
+            #pprint (data)
+    yield key, data
+'''
+
+'''
+# Original code with significant bug
 def window_iter(iterable: List[DataPoint],
                 window_size: float,
                 window_offset: float):
@@ -109,6 +183,7 @@ def window_iter(iterable: List[DataPoint],
     start_time = epoch_align(iterable[0].start_time, window_offset)
     end_time = start_time + win_size
     key = (start_time, end_time)
+    print (key)
 
     data = []
     for element in iterator:
@@ -124,4 +199,4 @@ def window_iter(iterable: List[DataPoint],
 
         data.append(element)
     yield key, data
-
+'''

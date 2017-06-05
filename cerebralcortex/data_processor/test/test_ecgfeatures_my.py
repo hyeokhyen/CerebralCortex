@@ -51,7 +51,8 @@ class TestECGFeatures(unittest.TestCase):
 
         ecg_ds = DataStream(None, None)
         ecg_ds.data = ecg
-        print (len(ecg_ds.data))
+        #print (ecg_ds.data)
+        #print (len(ecg_ds.data))
 
         cls.rr_intervals = compute_rr_intervals(ecg_ds, ecg_sampling_frequency)
 
@@ -70,10 +71,14 @@ class TestECGFeatures(unittest.TestCase):
         self.assertAlmostEqual(hr_hf, 14.143026468160871, delta=0.01)
 
     def test_ecg_feature_computation(self):
+        wSize = 60
+        wOff = 60
         rr_variance, rr_vlf, rr_hf, rr_lf, rr_lf_hf, rr_mean, rr_median, rr_quartile, rr_80, rr_20, rr_heart_rate = \
             ecg_feature_computation(self.rr_intervals,
-                                    window_size=120,
-                                    window_offset=60)
+                                    window_size=wSize,
+                                    window_offset=wOff)
+        print (rr_variance)
+
         # test all are DataStream
         self.assertIsInstance(rr_variance, DataStream)
         self.assertIsInstance(rr_vlf, DataStream)

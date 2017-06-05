@@ -184,14 +184,17 @@ def autosense_sequence_align(datastreams: List[DataStream],
         return result
 
     start_time = None
+    #print (len(datastreams))
     for ds in datastreams:
         ts = ds.data[0].start_time
+        #print (ts)
         if not start_time:
             start_time = ts
         elif start_time < ts:
             start_time = ts
-
+    print (start_time)
     start_time -= datetime.timedelta(seconds=1.0 / sampling_frequency)
+    print (start_time)
 
     data_block = []
     max_index = np.Inf
@@ -200,7 +203,7 @@ def autosense_sequence_align(datastreams: List[DataStream],
         if len(d) < max_index:
             max_index = len(d)
         data_block.append(d)
-
+    print (max_index)
     data_array = np.array(data_block)
 
     dimensions = data_array.shape[0]

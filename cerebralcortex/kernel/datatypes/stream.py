@@ -126,12 +126,15 @@ class Stream:
     def data(self, value):
         result = []
         for dp in value:
-            result.append(DataPoint(self._identifier, dp.start_time, dp.end_time, dp.sample))
+            result.append(DataPoint(dp.start_time, dp.end_time, dp.sample))
+            #result.append(DataPoint(self._identifier, dp.start_time, dp.end_time, dp.sample))
         self._data = result
 
     @classmethod
     def from_datastream(cls, input_streams: List):
-        result = cls(user=input_streams[0].user)
+        #print (input_streams[0].user)
+        result = cls(owner=input_streams[0].user)
+        #result = cls(user=input_streams[0].user)
 
         # TODO: Something with provenance tracking from datastream list
 
