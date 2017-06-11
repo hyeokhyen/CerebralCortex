@@ -31,12 +31,17 @@ import pytz
 import numpy as np
 
 from cerebralcortex.data_processor.feature.rip import rip_feature_computation
+from cerebralcortex.data_processor.feature.rip_rsa import rip_window_feature_computation
 from cerebralcortex.data_processor.signalprocessing.rip import compute_peak_valley
 from cerebralcortex.kernel.datatypes.datapoint import DataPoint
 from cerebralcortex.kernel.datatypes.datastream import DataStream
 from cerebralcortex.data_processor.signalprocessing.window import window_sliding
 
 from pprint import pprint
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
 
 class TestRIPFeatures(unittest.TestCase):
     @classmethod
@@ -56,6 +61,31 @@ class TestRIPFeatures(unittest.TestCase):
         #print (rip_ds.data)
 
         cls.peak, cls.valley = compute_peak_valley(rip_ds, fs=rip_sampling_frequency)
+        # plot
+        path_save = '/home/hyeok/research/md2k/data/test/plot.png'
+        rip_data = []
+        rip_time = []
+        for i in range(len(rip_ds.data)):
+            rip_data.append(rip_ds.data[i].sample)
+            rip_time.append(rip_ds.data[i].start_time)
+        peak_data = []
+        peak_time = []
+        for i in range(len(cls.peak.data)):
+            peak_data.append(cls.peak.data[i].sample)
+            peak_time.append(cls.peak.data[i].start_time)
+        valley_data = []
+        valley_time = []
+        for i in range(len(cls.valley.data)):
+            valley_data.append(cls.valley.data[i].sample)
+            valley_time.append(cls.valley.data[i].start_time)
+
+        fig, ax = plt.subplots(figsize=(100,20))
+        ax.plot(rip_time, rip_data, 'ko--')
+        ax.plot(peak_time, peak_data, 'ro')
+        ax.plot(valley_time, valley_data, 'go')
+        fig.savefig(path_save)
+        print (path_save)
+
 
     def test_rip_feature_computation(self):
         print("peak size = ", len(self.peak.data))
@@ -66,6 +96,7 @@ class TestRIPFeatures(unittest.TestCase):
         fd_resp_datastream, fd_stretch_datastream, d5_expr_datastream, d5_stretch_datastream = rip_feature_computation(
             self.peak, self.valley)
 
+        '''
         #pprint (insp_datastream.data)
         window_size = 60; window_offset = 60
         window_data = window_sliding(insp_datastream.data, window_size, window_offset)
@@ -100,7 +131,7 @@ class TestRIPFeatures(unittest.TestCase):
         print ('------------------------------------------')
         print (len(peak_window.items()))
         print (len(valley_window.items()))
-
+        '''
         # test all are DataStream
         self.assertIsInstance(insp_datastream, DataStream)
         self.assertIsInstance(expr_datastream, DataStream)
@@ -119,7 +150,6 @@ class TestRIPFeatures(unittest.TestCase):
         self.assertIsInstance(fd_stretch_datastream, DataStream)
         self.assertIsInstance(d5_expr_datastream, DataStream)
         self.assertIsInstance(d5_stretch_datastream, DataStream)
-
-
+        
 if __name__ == '__main__':
     unittest.main()

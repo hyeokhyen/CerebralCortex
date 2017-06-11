@@ -35,6 +35,7 @@ from cerebralcortex.data_processor.signalprocessing.window import window_sliding
 from cerebralcortex.kernel.datatypes.datapoint import DataPoint
 from cerebralcortex.kernel.datatypes.datastream import DataStream
 
+from pprint import pprint
 
 class TestECGFeatures(unittest.TestCase):
     @classmethod
@@ -55,6 +56,7 @@ class TestECGFeatures(unittest.TestCase):
         #print (len(ecg_ds.data))
 
         cls.rr_intervals = compute_rr_intervals(ecg_ds, ecg_sampling_frequency)
+        pprint (cls.rr_intervals.data)
 
     def test_lomb(self):
         window_data = window_sliding(self.rr_intervals.data, window_size=120, window_offset=60)
@@ -77,7 +79,7 @@ class TestECGFeatures(unittest.TestCase):
             ecg_feature_computation(self.rr_intervals,
                                     window_size=wSize,
                                     window_offset=wOff)
-        print (rr_variance)
+        #print (rr_variance)
 
         # test all are DataStream
         self.assertIsInstance(rr_variance, DataStream)
