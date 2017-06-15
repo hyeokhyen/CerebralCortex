@@ -467,7 +467,9 @@ def rip_window_feature_computation(peaks_datastream: DataStream,
 	#----------------------------------------------------------------------
 
 	valleys = valleys_datastream.data
-	peaks = peaks_datastream.data[:-1]
+	peaks = peaks_datastream.data[:len(valleys)-1]
+	#peaks = peaks_datastream.data[:-1]	
+	#print (len(valleys), len(peaks))
 
 	for i, peak in enumerate(peaks):
 		valley_start_time = valleys[i].start_time
@@ -496,6 +498,10 @@ def rip_window_feature_computation(peaks_datastream: DataStream,
 			rsa.append(value)
 		#----------------------------------------------------------------------
 
+	#print (len(rsa))
+	if len(rsa) == 0:
+		result = []
+		return result
 	#----------------------------------------------------------------------
 	# Aggregate minute level feature
 
@@ -505,8 +511,9 @@ def rip_window_feature_computation(peaks_datastream: DataStream,
 	# inspiration minute volume
 	valleys = valleys_datastream.data
 	peaks = peaks_datastream.data
+	num_data = np.min([len(valleys), len(peaks)])
 	value = 0.;
-	for i in range(len(peaks)):
+	for i in range(num_data):
 		peak_value = peaks[i].sample
 		peak_time = peaks[i].start_time.timestamp()
 		valley_value = valleys[i].sample

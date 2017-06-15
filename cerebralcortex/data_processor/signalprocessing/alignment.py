@@ -116,63 +116,67 @@ def timestamp_correct(datastream: DataStream,
                       min_available_gaps: int = 3600,  # TODO: Does this matter anymore?
                       min_split_gap: datetime.timedelta = datetime.timedelta(seconds=30),
                       max_data_points_per_segment: int = 100000000) -> DataStream:
-    result = DataStream.from_datastream([datastream])
-    result.data = []
+	try:
+		result = DataStream.from_datastream([datastream])
+		result.data = []
 
-    if len(datastream.data) == 0:
-        return result
+		if len(datastream.data) == 0:
+			return result
 
-    data = datastream.data
-    time_deltas = np.diff([dp.start_time for dp in data])
+		data = datastream.data
+		time_deltas = np.diff([dp.start_time for dp in data])
 
-    gap_points = [data[0]]
-    for index, value in enumerate(time_deltas):
-        if value > min_split_gap:
-            gap_points.append(data[index])
-    gap_points.append(data[-1])
+		gap_points = [data[0]]
+		for index, value in enumerate(time_deltas):
+			if value > min_split_gap:
+				gap_points.append(data[index])
+		gap_points.append(data[-1])
 
-    segments = []
-    segment_data = []
-    gap_index = 0
-    low_time = gap_points[gap_index].start_time
-    high_time = gap_points[gap_index + 1].start_time
-    for dp in data:
-        if len(segment_data) >= max_data_points_per_segment:
-            segments.append(interpolate_gaps(segment_data, sampling_frequency))
-            segment_data = []
+		segments = []
+		segment_data = []
+		gap_index = 0
+		low_time = gap_points[gap_index].start_time
+		high_time = gap_points[gap_index + 1].start_time
+		for dp in data:
+			if len(segment_data) >= max_data_points_per_segment:
+				segments.append(interpolate_gaps(segment_data, sampling_frequency))
+				segment_data = []
 
-        if low_time <= dp.start_time <= high_time:
-            segment_data.append(dp)
-        else:
-            segments.append(interpolate_gaps(segment_data, sampling_frequency))
-            gap_index += 1
-            low_time = gap_points[gap_index].start_time
-            high_time = gap_points[gap_index + 1].start_time
-            segment_data = []
+			if low_time <= dp.start_time <= high_time:
+				segment_data.append(dp)
+			else:
+				segments.append(interpolate_gaps(segment_data, sampling_frequency))
+				gap_index += 1
+				low_time = gap_points[gap_index].start_time
+				high_time = gap_points[gap_index + 1].start_time
+				segment_data = []
 
-    segments.append(interpolate_gaps(segment_data, sampling_frequency))
+		segments.append(interpolate_gaps(segment_data, sampling_frequency))
 
-    for s in segments:
-        begin_time = s[0].start_time.timestamp()
-        end_time = s[-1].start_time.timestamp()
+		for s in segments:
+			begin_time = s[0].start_time.timestamp()
+			end_time = s[-1].start_time.timestamp()
 
-        x = np.array([i for i in frange(begin_time, end_time, 1.0 / sampling_frequency)], dtype='float')
-        y = np.array([dp.start_time.timestamp() for dp in s], dtype='float')
+			x = np.array([i for i in frange(begin_time, end_time, 1.0 / sampling_frequency)], dtype='float')
+			y = np.array([dp.start_time.timestamp() for dp in s], dtype='float')
 
-        distance, path = fastdtw(x, y, radius=1)
+			distance, path = fastdtw(x, y, radius=1)
 
-        xx = [0 for i in y]
-        for si, ei in path:
-            xx[ei] = x[si]
+			xx = [0 for i in y]
+			for si, ei in path:
+				xx[ei] = x[si]
 
-        dtw_corrected_data = []
-        for index, dp in enumerate(s):
-            ts = datetime.datetime.fromtimestamp(xx[index], tz=dp.start_time.tzinfo)
-            dtw_corrected_data.append(DataPoint.from_tuple(ts, dp.sample))
+			dtw_corrected_data = []
+			for index, dp in enumerate(s):
+				ts = datetime.datetime.fromtimestamp(xx[index], tz=dp.start_time.tzinfo)
+				dtw_corrected_data.append(DataPoint.from_tuple(ts, dp.sample))
 
-        result.data.extend(dtw_corrected_data)
+			result.data.extend(dtw_corrected_data)
 
-    return result
+		return result
+	except:
+		return []
+	
 
 
 def autosense_sequence_align(datastreams: List[DataStream],

@@ -94,7 +94,7 @@ class TestAllFeatures(unittest.TestCase):
 		window_offset = 30
 
 		features = OrderedDict()
-		for key, data in features_window(self.df_ecg, self.df_rip, window_size, window_offset):
+		for key, data in features_window(self, self.df_ecg, self.df_rip, window_size, window_offset):
 			features[key] = data
 		
 		items = list(features.items())

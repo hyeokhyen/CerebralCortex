@@ -108,40 +108,28 @@ def window_iter(iterable: List[DataPoint],
 	final_time = iterable[-1].start_time
 	win_size = timedelta(seconds=window_size)
 	window_offset_delta = timedelta(seconds=window_offset)
- 	
-	while start_time < final_time:
+
+	while start_time < iterable[-1].start_time:
 		end_time = start_time + win_size
 		key = (start_time, end_time)
-		
-		data = []
-		num_data = len(iterable)
-		for i in range(num_data):
-			if iterable[i].start_time > end_time:
-				iterable = iterable[i:]
-				break
-			elif iterable[i].start_time > start_time:
-				data.append(iterable[i])
+
+		data = [i for i in iterable if i.start_time > start_time and i.start_time < end_time]
 
 		if len(data) == 0:
-			num_data = len(iterable)
-			for i in range(num_data):
-				if iterable[i].start_time > end_time:
-					start_time = iterable[i].start_time
+			for i in iterable:
+				if i.start_time > end_time:
+					start_time = i.start_time
 					start_time = epoch_align(start_time, window_offset)
-					iterable = iterable[i:]
 					break
 		else:
 			# slide window
 			start_time = start_time + window_offset_delta
-			'''
 			# check data length in window
 			data_start_time = np.datetime64(data[0].start_time).astype(np.int64)/10**6
 			data_end_time = np.datetime64(data[-1].start_time).astype(np.int64)/10**6
 			data_timedelta = data_end_time - data_start_time
 			if data_timedelta > window_offset/2:
 				yield key, data
-			'''
-			yield key, data
 
 def window_sliding_multi(data: List[DataPoint],
 				   window_size: float,
@@ -191,47 +179,27 @@ def window_iter_multi(iterable_dict,
 		key = (start_time, end_time)
 
 		data = {}
-		# valley -> peak
-		data['valley'] = []
-		data['peak'] = []
-		num_data = len(valley)
-		for i in range(num_data):
-			if valley[i].start_time > end_time:
-				valley = valley[i:]
-				peak = peak[i:]
-				break
-			elif valley[i].start_time > start_time:
-				data['valley'].append(valley[i])
-				data['peak'].append(peak[i])
-		data['rr_intervals'] = []
-		num_data = len(rr_intervals)
-		for i in range(num_data):
-			if rr_intervals[i].start_time > end_time:
-				rr_intervals = rr_intervals[i:]
-				break
-			elif rr_intervals[i].start_time > start_time:
-				data['rr_intervals'].append(rr_intervals[i])
-		
+		data['peak'] = [i for i in peak if i.start_time > start_time and i.start_time < end_time]
+		data['valley'] = [i for i in valley if i.start_time > start_time and i.start_time < end_time]
+		data['rr_intervals'] = [i for i in rr_intervals if i.start_time > start_time and i.start_time < end_time]
+
 		if len(data['peak']) == 0 or len(data['valley']) == 0 or len(data['rr_intervals']) == 0:
-			# valley -> peak
-			num_data = len(valley)
-			for i in range(num_data):
-				if valley[i].start_time > start_time:
-					start_time = valley[i].start_time
-					valley = valley[i:]
-					peak = peak[i:]
+			for i in peak:
+				if i.start_time > end_time:
+					start_time = i.start_time
 					break
-			num_data = len(rr_intervals)
-			for i in range(num_data):
-				if rr_intervals[i].start_time > start_time:
-					start_time = rr_intervals[i].start_time
-					rr_intervals = rr_intervals[i:]
+			for i in valley:
+				if i.start_time > start_time:
+					start_time = i.start_time
+					break
+			for i in rr_intervals:
+				if i.start_time > start_time:
+					start_time = i.start_time
 					break
 			start_time = epoch_align(start_time, window_offset)
 		else:
 			# slide window
 			start_time = start_time + window_offset_delta
-			
 			# check data length in window
 			data_start_time = np.max([data['peak'][0].start_time, data['valley'][0].start_time, data['rr_intervals'][0].start_time])
 			data_start_time = np.datetime64(data_start_time).astype(np.int64)/10**6
@@ -240,3 +208,111 @@ def window_iter_multi(iterable_dict,
 			data_timedelta = data_end_time - data_start_time
 			if data_timedelta > window_offset/2:
 				yield key, data
+
+'''
+def window_iter(iterable: List[DataPoint],
+				window_size: float,
+				window_offset: float):
+	"""
+	Window iteration function that support various common implementations
+	:param iterable:
+	:param window_size:
+	:param window_offset:
+	"""
+
+	start_time = epoch_align(iterable[0].start_time, window_offset)
+	win_size = timedelta(seconds=window_size)
+	window_offset = timedelta(seconds=window_offset)
+
+	while start_time < iterable[-1].start_time:
+		end_time = start_time + win_size
+		key = (start_time, end_time)
+
+		data = [i for i in iterable if i.start_time > start_time and i.start_time < end_time]
+
+		start_time = start_time + window_offset
+		#print (start_time)
+
+		if len(data) > 0:
+			yield key, data
+'''
+
+'''
+# Modified code but still having problem when having small offset size.
+def window_iter(iterable: List[DataPoint],
+				window_size: float,
+				window_offset: float):
+	"""
+	Window iteration function that support various common implementations
+	:param iterable:
+	:param window_size:
+	:param window_offset:
+	"""
+	iterator = iter(iterable)
+
+	start_time = epoch_align(iterable[0].start_time, window_offset)
+	win_size = timedelta(seconds=window_size)
+	window_offset = timedelta(seconds=window_offset)
+
+	end_time = start_time + win_size
+	key = (start_time, end_time)
+
+	data = []
+	for element in iterator:
+		timestamp = element.start_time
+		if timestamp > end_time:
+			#print (element)
+			#print (key)
+			yield key, data
+
+			start_time = start_time + window_offset
+			end_time = start_time + win_size
+			while end_time < timestamp:
+				start_time = start_time + window_offset
+				end_time = start_time + win_size
+			key = (start_time, end_time)
+
+			data = [i for i in data if i.start_time > start_time and i.start_time < end_time]
+			#print (key)
+			#pprint (data)
+
+		if timestamp > start_time and timestamp < end_time:
+			data.append(element)
+			#pprint (data)
+	yield key, data
+'''
+
+'''
+# Original code with significant bug
+def window_iter(iterable: List[DataPoint],
+				window_size: float,
+				window_offset: float):
+	"""
+	Window iteration function that support various common implementations
+	:param iterable:
+	:param window_size:
+	:param window_offset:
+	"""
+	iterator = iter(iterable)
+
+	win_size = timedelta(seconds=window_size)
+	start_time = epoch_align(iterable[0].start_time, window_offset)
+	end_time = start_time + win_size
+	key = (start_time, end_time)
+	print (key)
+
+	data = []
+	for element in iterator:
+		timestamp = element.start_time
+		if timestamp > end_time:
+			yield key, data
+
+			start_time = epoch_align(element.start_time, window_offset)
+			end_time = start_time + win_size
+			key = (start_time, end_time)
+
+			data = [i for i in data if i.start_time > start_time]
+
+		data.append(element)
+	yield key, data
+'''
