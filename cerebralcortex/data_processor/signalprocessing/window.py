@@ -85,7 +85,8 @@ def window_sliding(data: List[DataPoint],
 		raise TypeError('data is not List[DataPoint]')
 
 	if len(data) == 0:
-		raise ValueError('The length of data is zero')
+		#raise ValueError('The length of data is zero')
+		return OrderedDict()
 
 	windowed_datastream = OrderedDict()
 
@@ -106,11 +107,11 @@ def window_iter(iterable: List[DataPoint],
 
 	start_time = epoch_align(iterable[0].start_time, window_offset)
 	final_time = iterable[-1].start_time
-	win_size = timedelta(seconds=window_size)
+	window_size_delta = timedelta(seconds=window_size)
 	window_offset_delta = timedelta(seconds=window_offset)
  	
 	while start_time < final_time:
-		end_time = start_time + win_size
+		end_time = start_time + window_size_delta
 		key = (start_time, end_time)
 		
 		data = []
@@ -138,12 +139,12 @@ def window_iter(iterable: List[DataPoint],
 			data_start_time = np.datetime64(data[0].start_time).astype(np.int64)/10**6
 			data_end_time = np.datetime64(data[-1].start_time).astype(np.int64)/10**6
 			data_timedelta = data_end_time - data_start_time
-			if data_timedelta > window_offset/2:
+			if data_timedelta > window_size/2:
 				yield key, data
 			'''
 			yield key, data
 
-def window_sliding_multi(data: List[DataPoint],
+def window_sliding_multi(data,
 				   window_size: float,
 				   window_offset: float) -> OrderedDict:
 	"""
@@ -179,16 +180,17 @@ def window_iter_multi(iterable_dict,
 	valley = iterable_dict['valley']
 	rr_intervals = iterable_dict['rr_intervals']
 
-	start_time = np.max([peak[0].start_time, valley[0].start_time, rr_intervals[0].start_time])
-	final_time = np.min([peak[-1].start_time, valley[-1].start_time, rr_intervals[-1].start_time])
+	start_time = np.min([valley[0].start_time, rr_intervals[0].start_time])
+	final_time = np.max([valley[-1].start_time, rr_intervals[-1].start_time])
 
 	start_time = epoch_align(start_time, window_offset)
-	win_size = timedelta(seconds=window_size)
+	window_size_delta = timedelta(seconds=window_size)
 	window_offset_delta = timedelta(seconds=window_offset)
 
 	while start_time < final_time:
-		end_time = start_time + win_size
+		end_time = start_time + window_size_delta
 		key = (start_time, end_time)
+		#print (start_time, end_time)
 
 		data = {}
 		# valley -> peak
@@ -197,46 +199,72 @@ def window_iter_multi(iterable_dict,
 		num_data = len(valley)
 		for i in range(num_data):
 			if valley[i].start_time > end_time:
-				valley = valley[i:]
-				peak = peak[i:]
 				break
 			elif valley[i].start_time > start_time:
 				data['valley'].append(valley[i])
-				data['peak'].append(peak[i])
+				data['peak'].append(peak[i]) 
+		# rr_intervals
 		data['rr_intervals'] = []
 		num_data = len(rr_intervals)
 		for i in range(num_data):
 			if rr_intervals[i].start_time > end_time:
-				rr_intervals = rr_intervals[i:]
 				break
 			elif rr_intervals[i].start_time > start_time:
 				data['rr_intervals'].append(rr_intervals[i])
+				
+		# slide window
+		start_time = start_time + window_offset_delta
+				
+		# cut off unnecessary previous time
+		# RIP
+		num_data = len(valley)
+		i_start = 0
+		for i in range(num_data):
+			if valley[i].start_time < start_time:
+				i_start += 1
+			else:
+				break
+		valley = valley[i_start:]
+		peak = peak[i_start:]
+		# ECG
+		num_data = len(rr_intervals)
+		i_start = 0
+		for i in range(num_data):
+			if rr_intervals[i].start_time < start_time:
+				i_start += 1
+			else:
+				break
+		rr_intervals = rr_intervals[i_start:]
 		
+		# If have to skip to far future
+		# Among RIP & ECG
+		# find closest point from current end_time
+		# choose further part as start_time
 		if len(data['peak']) == 0 or len(data['valley']) == 0 or len(data['rr_intervals']) == 0:
 			# valley -> peak
 			num_data = len(valley)
+			start_time_rip = start_time
 			for i in range(num_data):
-				if valley[i].start_time > start_time:
-					start_time = valley[i].start_time
-					valley = valley[i:]
-					peak = peak[i:]
+				if valley[i].start_time > end_time:
+					start_time_rip = valley[i].start_time
 					break
+			# rr_intervals
 			num_data = len(rr_intervals)
+			start_time_rr = start_time
 			for i in range(num_data):
-				if rr_intervals[i].start_time > start_time:
-					start_time = rr_intervals[i].start_time
-					rr_intervals = rr_intervals[i:]
+				if rr_intervals[i].start_time > end_time:
+					start_time_rr = rr_intervals[i].start_time
 					break
+			start_time = np.min([start_time_rip, start_time_rr])
 			start_time = epoch_align(start_time, window_offset)
 		else:
-			# slide window
-			start_time = start_time + window_offset_delta
-			
 			# check data length in window
-			data_start_time = np.max([data['peak'][0].start_time, data['valley'][0].start_time, data['rr_intervals'][0].start_time])
+			#data_start_time = np.max([data['peak'][0].start_time, data['valley'][0].start_time, data['rr_intervals'][0].start_time])
+			data_start_time = data['rr_intervals'][0].start_time
 			data_start_time = np.datetime64(data_start_time).astype(np.int64)/10**6
-			data_end_time = np.min([data['peak'][-1].start_time, data['valley'][-1].start_time, data['rr_intervals'][-1].start_time])
+			#data_end_time = np.min([data['peak'][-1].start_time, data['valley'][-1].start_time, data['rr_intervals'][-1].start_time])
+			data_end_time = data['rr_intervals'][-1].start_time
 			data_end_time = np.datetime64(data_end_time).astype(np.int64)/10**6
 			data_timedelta = data_end_time - data_start_time
-			if data_timedelta > window_offset/2:
+			if data_timedelta > window_size/2:
 				yield key, data

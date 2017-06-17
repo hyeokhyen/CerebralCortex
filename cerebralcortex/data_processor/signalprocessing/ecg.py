@@ -129,39 +129,41 @@ def compute_moving_window_int(sample: np.ndarray,
 	:return: the Moving window integration of the sample array
 	"""
 	# I believe these constants can be kept in a file
+	try:
+		# filter edges
+		filter_edges = [0, 4.5 * 2 / fs, 5 * 2 / fs, 20 * 2 / fs, 20.5 * 2 / fs, 1]
+		# gains at filter band edges
+		gains = [0, 0, 1, 1, 0, 0]
+		# weights
+		weights = [500 / delta, 1 / delta, 500 / delta]
+		# length of the FIR filter
 
-	# filter edges
-	filter_edges = [0, 4.5 * 2 / fs, 5 * 2 / fs, 20 * 2 / fs, 20.5 * 2 / fs, 1]
-	# gains at filter band edges
-	gains = [0, 0, 1, 1, 0, 0]
-	# weights
-	weights = [500 / delta, 1 / delta, 500 / delta]
-	# length of the FIR filter
+		# FIR filter coefficients for bandpass filtering
+		filter_coeff = signal.firls(filter_length, filter_edges, gains, weights)
 
-	# FIR filter coefficients for bandpass filtering
-	filter_coeff = signal.firls(filter_length, filter_edges, gains, weights)
+		# bandpass filtered signal
+		bandpass_signal = signal.convolve(sample, filter_coeff, 'same')
+		bandpass_signal /= np.percentile(bandpass_signal, 90)
 
-	# bandpass filtered signal
-	bandpass_signal = signal.convolve(sample, filter_coeff, 'same')
-	bandpass_signal /= np.percentile(bandpass_signal, 90)
+		# derivative array
+		derivative_array = (np.array([-1.0, -2.0, 0, 2.0, 1.0])) * (1 / 8)
+		# derivative signal (differentiation of the bandpass)
+		derivative_signal = signal.convolve(bandpass_signal, derivative_array, 'same')
+		derivative_signal /= np.percentile(derivative_signal, 90)
 
-	# derivative array
-	derivative_array = (np.array([-1.0, -2.0, 0, 2.0, 1.0])) * (1 / 8)
-	# derivative signal (differentiation of the bandpass)
-	derivative_signal = signal.convolve(bandpass_signal, derivative_array, 'same')
-	derivative_signal /= np.percentile(derivative_signal, 90)
+		# squared derivative signal
+		derivative_squared_signal = derivative_signal ** 2
+		derivative_squared_signal /= np.percentile(derivative_squared_signal, 90)
 
-	# squared derivative signal
-	derivative_squared_signal = derivative_signal ** 2
-	derivative_squared_signal /= np.percentile(derivative_squared_signal, 90)
+		# blackman window
+		blackman_window = np.blackman(blackmanWinlen)
+		# moving window Integration of squared derivative signal
+		mov_win_int_signal = signal.convolve(derivative_squared_signal, blackman_window, 'same')
+		mov_win_int_signal /= np.percentile(mov_win_int_signal, 90)
 
-	# blackman window
-	blackman_window = np.blackman(blackmanWinlen)
-	# moving window Integration of squared derivative signal
-	mov_win_int_signal = signal.convolve(derivative_squared_signal, blackman_window, 'same')
-	mov_win_int_signal /= np.percentile(mov_win_int_signal, 90)
-
-	return mov_win_int_signal
+		return mov_win_int_signal
+	except:
+		return np.array([])
 
 
 def check_peak(data: List[DataPoint]) -> bool:
@@ -351,7 +353,7 @@ def confirm_peaks(rpeak_temp1: list,
 def detect_rpeak(ecg: DataStream,
 				 fs: float = 64,
 				 threshold: float = 0.5,
-				 blackman_win_len_range: float = 1 / 5) -> DataStream:
+				 blackman_win_len_range: float = 1 / 5):
 	"""
 	This program implements the Pan Tomkins algorithm on ECG signal to detect the R peaks
 
@@ -373,50 +375,61 @@ def detect_rpeak(ecg: DataStream,
 	:return: R peak array of tuples (timestamp, Rpeak interval)
 	"""
 
-	data = ecg.data
+	try:
+		data = ecg.data
 
-	sample = np.array([i.sample for i in data])
-	timestamp = np.array([i.start_time for i in data])
+		sample = np.array([i.sample for i in data])
+		timestamp = np.array([i.start_time for i in data])
 
-	# computes the moving window integration of the signal
-	blackman_win_len = np.ceil(fs * blackman_win_len_range)
-	y = compute_moving_window_int(sample, fs, blackman_win_len)
+		# computes the moving window integration of the signal
+		blackman_win_len = np.ceil(fs * blackman_win_len_range)
+		y = compute_moving_window_int(sample, fs, blackman_win_len)
 
-	peak_location_values = [(i, y[i]) for i in range(2, len(y) - 1) if check_peak(y[i - 2:i + 3])]
+		peak_location_values = [(i, y[i]) for i in range(2, len(y) - 1) if check_peak(y[i - 2:i + 3])]
 
-	# initial RR interval average
-	peak_location = [i[0] for i in peak_location_values]
-	running_rr_avg = sum(np.diff(peak_location)) / (len(peak_location) - 1)
+		# initial RR interval average
+		peak_location = [i[0] for i in peak_location_values]
+		running_rr_avg = sum(np.diff(peak_location)) / (len(peak_location) - 1)
 
-	rpeak_temp1 = compute_r_peaks(threshold, running_rr_avg, y, peak_location_values)
-	rpeak_temp2 = remove_close_peaks(rpeak_temp1, sample, fs)
-	index = confirm_peaks(rpeak_temp2, sample, fs)
-	
-	rpeak_timestamp = timestamp[index]
-	rpeak_samples = sample[index]
-	#---------------------------
-	# rpeak values:
-	result_rpeaks = []
-	for k in range(len(rpeak_samples)):
-		result_rpeaks.append(
-			DataPoint.from_tuple(rpeak_timestamp[k], rpeak_samples[k]))
-			
-	#---------------------------
-	# rr_interval values
-	rpeak_value = np.diff(rpeak_timestamp)
-	rpeak_timestamp = rpeak_timestamp[1:]
+		rpeak_temp1 = compute_r_peaks(threshold, running_rr_avg, y, peak_location_values)
+		rpeak_temp2 = remove_close_peaks(rpeak_temp1, sample, fs)
+		index = confirm_peaks(rpeak_temp2, sample, fs)
+		
+		rpeak_timestamp = timestamp[index]
+		rpeak_samples = sample[index]
+		#---------------------------
+		# rpeak values:
+		result_rpeaks = []
+		for k in range(len(rpeak_samples)):
+			result_rpeaks.append(
+				DataPoint.from_tuple(rpeak_timestamp[k], rpeak_samples[k]))
+				
+		#---------------------------
+		# rr_interval values
+		rpeak_value = np.diff(rpeak_timestamp)
+		rpeak_timestamp = rpeak_timestamp[1:]
 
-	result_interval = []
-	for k in range(len(rpeak_value)):
-		result_interval.append(
-			DataPoint.from_tuple(rpeak_timestamp[k], rpeak_value[k].seconds + rpeak_value[k].microseconds / 1e6))
+		result_interval = []
+		for k in range(len(rpeak_value)):
+			result_interval.append(
+				DataPoint.from_tuple(rpeak_timestamp[k], rpeak_value[k].seconds + rpeak_value[k].microseconds / 1e6))
 
-	# Create resulting datastream to be returned
-	# rpeaks
-	result_rpeaks_ds = DataStream.from_datastream([ecg])
-	result_rpeaks_ds.data = result_rpeaks
-	# rr_interval
-	result_interval_ds = DataStream.from_datastream([ecg])
-	result_interval_ds.data = result_interval
+		# Create resulting datastream to be returned
+		# rpeaks
+		result_rpeaks_ds = DataStream.from_datastream([ecg])
+		result_rpeaks_ds.data = result_rpeaks
+		# rr_interval
+		result_interval_ds = DataStream.from_datastream([ecg])
+		result_interval_ds.data = result_interval
 
-	return result_interval_ds, result_rpeaks_ds
+		return result_interval_ds, result_rpeaks_ds
+	except:
+		# Create resulting datastream to be returned
+		# rpeaks
+		result_rpeaks_ds = DataStream.from_datastream([ecg])
+		result_rpeaks_ds.data = []
+		# rr_interval
+		result_interval_ds = DataStream.from_datastream([ecg])
+		result_interval_ds.data = []
+
+		return result_interval_ds, result_rpeaks_ds
